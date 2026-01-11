@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quantum Compiler – Neon Glass Playground</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, #1e293b, #020617 55%),
+        radial-gradient(circle at bottom right, #0f172a, #000000 70%);
+      color: #e5e7eb;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .mono {
+      font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    }
+
+    /* ===== AMBIENT BLOBS ===== */
+    .ambient {
+      position: fixed;
+      border-radius: 999px;
+      filter: blur(60px);
+      opacity: 0.7;
+      z-index: 0;
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+    .ambient.a1 {
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.55), transparent 70%);
+      top: -120px;
+      left: -80px;
+    }
+
+    .ambient.a2 {
+      width: 380px;
+      height: 380px;
+      background: radial-gradient(circle, rgba(147, 51, 234, 0.5), transparent 70%);
+      bottom: -120px;
+      right: -60px;
+    }
+
+    .ambient.a3 {
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(34, 211, 238, 0.45), transparent 65%);
+      top: 40%;
+      left: 55%;
+    }
+
+    /* ===== STARTUP ===== */
+    #startup-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, #020617, #020617 70%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      animation: startupFadeOut 1s ease forwards;
+      animation-delay: 3.1s;
+      pointer-events: none;
+    }
+
+    .startup-orb {
+      width: 140px;
+      height: 140px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, #3b82f6, #8b5cf6);
+      filter: blur(12px);
+      opacity: 0;
+      animation:
+        orbReveal 1.2s ease forwards,
+        orbPulse 2.4s ease-in-out infinite 1.2s;
+    }
+
+    .startup-title {
+      margin-top: 2rem;
+      font-size: 2rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #e5e7eb;
+      opacity: 0;
+      animation: titleReveal 1.2s ease forwards;
+      animation-delay: 1.1s;
+    }
+
+    .startup-loading {
+      margin-top: 0.8rem;
+      font-size: 0.9rem;
+      color: #94a3b8;
+      opacity: 0;
+      animation: loadingReveal 1s ease forwards;
+      animation-delay: 1.8s;
+    }
+
+    @keyframes orbReveal {
+      0% { transform: scale(0.6); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes orbPulse {
+      0%, 100% { transform: scale(1); filter: blur(12px); }
+      50% { transform: scale(1.15); filter: blur(20px); }
+    }
+
+    @keyframes titleReveal {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes loadingReveal {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes startupFadeOut {
+      0% { opacity: 1; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+
+    /* ===== GLASS TOKENS ===== */
+    .glass-soft {
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(16px) saturate(160%);
+      -webkit-backdrop-filter: blur(16px) saturate(160%);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .glass-strong {
+      background: rgba(15, 23, 42, 0.62);
+      backdrop-filter: blur(22px) saturate(190%);
+      -webkit-backdrop-filter: blur(22px) saturate(190%);
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.95),
+        0 0 22px rgba(59, 130, 246, 0.45);
+    }
+
+    /* ===== APP LAYOUT ===== */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 10px;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+      opacity: 0;
+      transform: translateY(40px);
+      animation: appSlideIn 1.2s ease forwards;
+      animation-delay: 3.2s;
+    }
+
+    @keyframes appSlideIn {
+      0% { opacity: 0; transform: translateY(40px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.7rem 1.1rem;
+      border-radius: 16px;
+      box-shadow:
+        0 14px 40px rgba(15, 23, 42, 0.9),
+        0 0 18px rgba(59, 130, 246, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .topbar::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.3), transparent 60%);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: radial-gradient(circle at 30% 20%, #f9fafb, #e5e7eb 35%, #1e293b 80%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        0 0 22px rgba(56, 189, 248, 0.85),
+        0 0 38px rgba(129, 140, 248, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.7);
+    }
+
+    .logo-text-main {
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+    }
+
+    .logo-text-sub {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .pill {
+      padding: 0.25rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(45, 212, 191, 0.6);
+      color: #a5f3fc;
+      font-size: 0.65rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.6);
+    }
+
+    .btn-ghost {
+      background: rgba(15, 23, 42, 0.7);
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      font-size: 0.75rem;
+      color: #cbd5f5;
+      padding: 0.25rem 0.7rem;
+      transition: all 0.16s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(30, 64, 175, 0.9);
+      border-color: rgba(129, 140, 248, 0.9);
+      box-shadow:
+        0 0 16px rgba(59, 130, 246, 0.8),
+        0 0 26px rgba(56, 189, 248, 0.6);
+      color: #e5e7eb;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border: 1px solid rgba(191, 219, 254, 0.8);
+      box-shadow:
+        0 10px 30px rgba(37, 99, 235, 0.55),
+        0 0 32px rgba(147, 51, 234, 0.7);
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 0.8rem;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1.6fr) minmax(0, 1.4fr);
+      gap: 10px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      border-radius: 18px;
+      padding: 0.9rem 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sidebar > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .sidebar-section-title {
+      font-size: 0.75rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 0.4rem;
+    }
+
+    .project-card {
+      border-radius: 1rem;
+      padding: 0.8rem;
+      background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.45), rgba(15, 23, 42, 0.9));
+      backdrop-filter: blur(16px) saturate(170%);
+      border: 1px solid rgba(191, 219, 254, 0.65);
+      box-shadow:
+        0 20px 45px rgba(15, 23, 42, 0.95),
+        0 0 30px rgba(59, 130, 246, 0.7);
+    }
+
+    .project-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 0.15rem;
+    }
+
+    .project-subtitle {
+      font-size: 0.72rem;
+      color: #dbeafe;
+      opacity: 0.95;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.6rem;
+    }
+
+    .chip {
+      font-size: 0.65rem;
+      padding: 0.18rem 0.5rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      color: #e5e7eb;
+    }
+
+    .chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.9);
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      margin-top: 0.2rem;
+    }
+
+    .nav-item {
+      padding: 0.4rem 0.55rem;
+      border-radius: 0.65rem;
+      font-size: 0.8rem;
+      color: #cbd5f5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      cursor: pointer;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.5);
+      transition: all 0.16s ease;
+    }
+
+    .nav-item:hover {
+      background: rgba(30, 64, 175, 0.75);
+      border-color: rgba(129, 140, 248, 0.9);
+      box-shadow:
+        0 0 16px rgba(59, 130, 246, 0.75),
+        0 0 26px rgba(56, 189, 248, 0.6);
+      color: #e5e7eb;
+      transform: translateY(-1px);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.96), rgba(147, 51, 234, 0.94));
+      border-color: rgba(219, 234, 254, 0.9);
+      color: #e5e7eb;
+      box-shadow:
+        0 16px 45px rgba(37, 99, 235, 0.9),
+        0 0 32px rgba(147, 51, 234, 0.85);
+    }
+
+    /* ===== EDITOR PANEL ===== */
+    .editor-panel {
+      border-radius: 18px;
+      padding: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #cbd5f5;
+    }
+
+    .panel-title {
+      font-weight: 500;
+    }
+
+    .tab-row {
+      display: flex;
+      gap: 0.25rem;
+      background: rgba(15, 23, 42, 0.8);
+      padding: 0.1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(30, 64, 175, 0.9);
+    }
+
+    .tab {
+      padding: 0.18rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      cursor: pointer;
+      transition: 0.16s;
+    }
+
+    .tab.active {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      color: white;
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.85);
+    }
+
+    .editor-wrapper {
+      position: relative;
+      flex: 1;
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(20px) saturate(180%);
+      overflow: hidden;
+      display: flex;
+    }
+
+    .editor-gutter {
+      width: 48px;
+      border-right: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.95);
+      padding: 0.4rem 0.35rem;
+      font-size: 0.68rem;
+      color: #4b5563;
+      text-align: right;
+    }
+
+    .editor-gutter-line {
+      height: 1.2rem;
+    }
+
+    .editor {
+      flex: 1;
+      padding: 0.5rem 0.6rem;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      color: #e5e7eb;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      line-height: 1.2rem;
+      overflow: auto;
+      caret-color: #38bdf8;
+    }
+
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.35rem;
+      font-size: 0.7rem;
+      color: #9ca3af;
+    }
+
+    .toolbar-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(55, 65, 81, 0.95);
+    }
+
+    .toolbar-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.9);
+    }
+
+    .toolbar-dot.live {
+      background: #facc15;
+      box-shadow: 0 0 10px rgba(234, 179, 8, 0.9);
+    }
+
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* ===== PREVIEW PANEL ===== */
+    .preview-panel {
+      border-radius: 18px;
+      padding: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .preview-frame {
+      position: relative;
+      flex: 1;
+      border-radius: 1rem;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #cbd5f5;
+    }
+
+    .preview-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.7rem;
+      color: #9ca3af;
+    }
+
+    .preview-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.9);
+    }
+
+    .preview-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid rgba(55, 65, 81, 0.95);
+      background: rgba(15, 23, 42, 0.96);
+      font-size: 0.7rem;
+      color: #9ca3af;
+    }
+
+    .traffic-lights {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .traffic-light {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(55, 65, 81, 1);
+    }
+
+    .traffic-light.red {
+      background: #f97373;
+    }
+
+    .traffic-light.yellow {
+      background: #facc15;
+    }
+
+    .traffic-light.green {
+      background: #22c55e;
+    }
+
+    .preview-url {
+      flex: 1;
+      margin: 0 0.4rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(55, 65, 81, 0.95);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .preview-content {
+      flex: 1;
+      background: #020617;
+      border-top: 1px solid rgba(0, 0, 0, 0.85);
+      overflow: auto;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #020617;
+    }
+
+    .preview-empty-state {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      color: #6b7280;
+      font-size: 0.85rem;
+    }
+
+    .preview-empty-badge {
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid rgba(75, 85, 99, 0.85);
+      background: rgba(15, 23, 42, 0.95);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+    }
+
+    /* ===== FULLSCREEN BUTTON ===== */
+    .preview-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .fullscreen-btn {
+      padding: 0.3rem 0.55rem;
+      border-radius: 0.5rem;
+      background: rgba(15,23,42,0.65);
+      border: 1px solid rgba(148,163,184,0.45);
+      color: #e5e7eb;
+      cursor: pointer;
+      transition: 0.18s ease;
+      font-size: 0.85rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .fullscreen-btn:hover {
+      transform: translateY(-2px) scale(1.05);
+      border-color: rgba(147,51,234,0.8);
+      box-shadow: 0 0 18px rgba(59,130,246,0.6);
+    }
+
+    /* ===== DEMO MODAL ===== */
+    .qc-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .qc-modal.hidden {
+      display: none;
+    }
+
+    .qc-modal-content {
+      width: 420px;
+      max-width: 92%;
+      padding: 1.6rem;
+      border-radius: 1.2rem;
+      animation: qcPop 0.25s ease;
+    }
+
+    @keyframes qcPop {
+      0% { transform: scale(0.85); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .qc-title {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      letter-spacing: 0.12em;
+      color: #e0e7ff;
+    }
+
+    .qc-section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #93c5fd;
+      margin-bottom: 0.4rem;
+    }
+
+    .qc-option {
+      padding: 0.55rem 0.8rem;
+      border-radius: 0.7rem;
+      background: rgba(15,23,42,0.75);
+      border: 1px solid rgba(148,163,184,0.45);
+      color: #e5e7eb;
+      cursor: pointer;
+      transition: 0.18s ease;
+      margin-bottom: 0.35rem;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    .qc-option:hover {
+      background: rgba(59,130,246,0.35);
+      border-color: rgba(147,51,234,0.8);
+      transform: translateY(-2px);
+      box-shadow: 0 0 18px rgba(59,130,246,0.6);
+    }
+
+    .qc-close {
+      margin-top: 0.6rem;
+      width: 100%;
+      padding: 0.45rem;
+      border-radius: 0.7rem;
+      background: rgba(15,23,42,0.7);
+      border: 1px solid rgba(148,163,184,0.4);
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: 0.18s ease;
+      font-size: 0.8rem;
+    }
+
+    .qc-close:hover {
+      background: rgba(239,68,68,0.25);
+      border-color: rgba(239,68,68,0.6);
+      color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+
+<div id="startup-screen">
+  <div class="startup-orb"></div>
+  <div class="startup-title mono">Quantum Compiler</div>
+  <div class="startup-loading mono">Booting workspace...</div>
+</div>
+
+<div class="ambient a1"></div>
+<div class="ambient a2"></div>
+<div class="ambient a3"></div>
+
+<div class="app">
+  <header class="topbar glass-soft">
+    <div class="logo">
+      <div class="logo-badge mono">{ }</div>
+      <div>
+        <div class="logo-text-main">Quantum Compiler</div>
+        <div class="logo-text-sub">Interactive coding canvas</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="pill mono">LIVE UI TEMPLATE</div>
+      <button class="btn-ghost mono" id="btnAutoDemo">Demo typing ⏵</button>
+      <button class="btn-primary mono" id="btnRun">▶ Run</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <aside class="sidebar glass-soft">
+      <div>
+        <div class="sidebar-section-title">Workspace</div>
+        <div class="project-card">
+          <div class="project-title">New coding playground</div>
+          <div class="project-subtitle">Design your UI, then wire the logic.</div>
+          <div class="chip-row">
+            <div class="chip"><span class="chip-dot"></span> Auto-save draft</div>
+            <div class="chip mono">HTML · CSS · JS</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sidebar-section-title">Modes</div>
+        <div class="nav-list" id="modeList">
+          <div class="nav-item active" data-mode="html">
+            <span><span class="chip-dot"></span> Structure</span>
+            <span class="mono">HTML</span>
+          </div>
+          <div class="nav-item" data-mode="css">
+            <span><span class="chip-dot" style="background:#60a5fa"></span> Style</span>
+            <span class="mono">CSS</span>
+          </div>
+          <div class="nav-item" data-mode="js">
+            <span><span class="chip-dot" style="background:#f97316"></span> Logic</span>
+            <span class="mono">JS</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="editor-panel glass-soft">
+      <div class="panel-header">
+        <div class="panel-title">Live editor</div>
+        <div class="tab-row" id="tabRow">
+          <button class="tab active" data-tab="html">HTML</button>
+          <button class="tab" data-tab="css">CSS</button>
+          <button class="tab" data-tab="js">JS</button>
+        </div>
+      </div>
+
+      <div class="editor-wrapper glass-strong">
+        <div class="editor-gutter" id="gutter"></div>
+        <textarea class="editor" id="editor"></textarea>
+      </div>
+
+      <div class="editor-toolbar">
+        <div class="toolbar-left">
+          <div class="toolbar-tag">
+            <span class="toolbar-dot live"></span>
+            <span id="statusText">Idle</span>
+          </div>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn-ghost mono" id="btnReset">Reset starter code</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="preview-panel glass-soft">
+      <div class="preview-header">
+        <div class="panel-title">Preview</div>
+        <div class="preview-status">
+          <span class="preview-status-dot"></span>
+          <span id="previewStatusText">Waiting for run…</span>
+        </div>
+      </div>
+
+      <div class="preview-frame">
+        <div class="preview-toolbar">
+          <div class="traffic-lights">
+            <div class="traffic-light red"></div>
+            <div class="traffic-light yellow"></div>
+            <div class="traffic-light green"></div>
+          </div>
+
+          <div class="preview-url mono">https://quantum.compiler/playground</div>
+
+          <div class="preview-actions">
+            <button id="fullscreenBtn" class="fullscreen-btn mono">⛶</button>
+            <span class="mono">⌘R</span>
+          </div>
+        </div>
+
+        <div class="preview-content" id="previewContent">
+          <div class="preview-empty-state">
+            <div class="preview-empty-badge">Nothing running yet</div>
+            <div class="preview-empty-title">Hit “Run” to render your code.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="demoModal" class="qc-modal hidden">
+  <div class="qc-modal-content glass-strong">
+    <h2 class="qc-title mono">Choose a Demo</h2>
+
+    <div class="qc-section">
+      <div class="qc-section-title">Games</div>
+      <button class="qc-option" data-demo="clicker">⚡ Clicker Game</button>
+      <button class="qc-option" data-demo="platformer">🟦 Platformer</button>
+      <button class="qc-option" data-demo="shooter">🔫 Shooter</button>
+    </div>
+
+    <div class="qc-section">
+      <div class="qc-section-title">Websites</div>
+      <button class="qc-option" data-demo="landing">🌐 Landing Page</button>
+      <button class="qc-option" data-demo="portfolio">💼 Portfolio</button>
+    </div>
+
+    <div class="qc-section">
+      <div class="qc-section-title">UI Components</div>
+      <button class="qc-option" data-demo="card">🧊 Glass Card</button>
+      <button class="qc-option" data-demo="button">✨ Animated Button</button>
+    </div>
+
+    <button id="closeDemoModal" class="qc-close mono">Cancel</button>
+  </div>
+</div>
+
+<script>
+const defaultCode = {
+  html: `<!-- Starter HTML -->
+<div class="app-shell">
+  <h1>Hello from Quantum Compiler</h1>
+  <p>Edit HTML, CSS, and JS, then hit Run.</p>
+</div>`,
+  css: `body { font-family: system-ui, sans-serif; background:#020617; color:white; padding:20px; }`,
+  js: `console.log("Quantum Compiler Ready");`
+};
+
+let currentTab = "html";
+let code = { ...defaultCode };
+
+const editorEl = document.getElementById("editor");
+const gutterEl = document.getElementById("gutter");
+const previewContent = document.getElementById("previewContent");
+const statusText = document.getElementById("statusText");
+const previewStatusText = document.getElementById("previewStatusText");
+const btnAutoDemo = document.getElementById("btnAutoDemo");
+
+function updateEditorContent() {
+  editorEl.value = code[currentTab];
+  updateLineNumbers();
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  });
+  document.querySelectorAll(".nav-item[data-mode]").forEach(item => {
+    item.classList.toggle("active", item.dataset.mode === tab);
+  });
+  updateEditorContent();
+}
+
+// compatibility wrapper (callable from other code)
+function SwitchTab(tab) {
+  // reuse existing logic
+  switchTab(tab);
+}
+
+document.getElementById("tabRow").addEventListener("click", e => {
+  const btn = e.target.closest(".tab");
+  if (!btn) return;
+  switchTab(btn.dataset.tab);
+});
+
+document.getElementById("modeList").addEventListener("click", e => {
+  const item = e.target.closest(".nav-item[data-mode]");
+  if (!item) return;
+  switchTab(item.dataset.mode);
+});
+
+function updateLineNumbers() {
+  const lines = editorEl.value.split("\\n").length;
+  gutterEl.innerHTML = "";
+  for (let i = 1; i <= lines; i++) {
+    const div = document.createElement("div");
+    div.textContent = i;
+    div.className = "editor-gutter-line";
+    gutterEl.appendChild(div);
+  }
+}
+
+editorEl.addEventListener("input", e => {
+  code[currentTab] = e.target.value;
+  updateLineNumbers();
+  statusText.textContent = "Unsaved changes";
+});
+
+editorEl.addEventListener("scroll", e => {
+  gutterEl.scrollTop = e.target.scrollTop;
+});
+
+function runCode() {
+  const { html, css, js } = code;
+  const doc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Preview</title>
+<style>${css}</style>
+</head>
+<body>
+${html}
+<script>
+${js}
+</` + `script>
+</body>
+</html>`;
+
+  const iframe = document.createElement("iframe");
+  previewContent.innerHTML = "";
+  previewContent.appendChild(iframe);
+
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+  iframeDoc.open();
+  iframeDoc.write(doc);
+  iframeDoc.close();
+
+  statusText.textContent = "Last run just now";
+  previewStatusText.textContent = "Preview updated";
+}
+
+document.getElementById("btnRun").addEventListener("click", runCode);
+
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    e.preventDefault();
+    runCode();
+  }
+});
+
+document.getElementById("btnReset").addEventListener("click", () => {
+  code = { ...defaultCode };
+  updateEditorContent();
+  previewContent.innerHTML = "<div class='preview-empty-state'><div class='preview-empty-badge'>Starter restored</div></div>";
+});
+
+const fullscreenBtn = document.getElementById("fullscreenBtn");
+fullscreenBtn.addEventListener("click", () => {
+  const preview = document.querySelector(".preview-frame");
+  if (!document.fullscreenElement) {
+    preview.requestFullscreen().catch(err => console.error(err));
+  } else {
+    document.exitFullscreen();
+  }
+});
+
+const demoModal = document.getElementById("demoModal");
+const closeDemoModal = document.getElementById("closeDemoModal");
+
+btnAutoDemo.addEventListener("click", () => {
+  demoModal.classList.remove("hidden");
+});
+closeDemoModal.addEventListener("click", () => {
+  demoModal.classList.add("hidden");
+});
+
+const demoTemplates = {
+  clicker: `
+<div id="app">
+  <h1>Clicker Game</h1>
+  <button id="btn">Clicks: 0</button>
+</div>
+
+<script>
+let count = 0;
+const btn = document.getElementById("btn");
+btn.onclick = () => {
+  count++;
+  btn.textContent = "Clicks: " + count;
+};
+<\/script>
+`,
+
+  platformer: `
+<canvas id="game" width="600" height="300"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let x = 50, y = 200, vy = 0;
+const gravity = 1;
+const jump = -14;
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && y >= 200) vy = jump;
+});
+
+function loop(){
+  ctx.clearRect(0,0,600,300);
+  ctx.fillStyle = "#16a34a";
+  ctx.fillRect(0,230,600,70);
+  ctx.fillStyle = "white";
+  ctx.fillRect(x,y,30,30);
+
+  vy += gravity;
+  y += vy;
+  if (y > 200) { y = 200; vy = 0; }
+
+  requestAnimationFrame(loop);
+}
+loop();
+<\/script>
+`,
+
+  shooter: `
+<canvas id="game" width="600" height="300"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let bullets = [];
+let playerY = 150;
+
+window.addEventListener("mousemove", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  playerY = e.clientY - rect.top;
+});
+
+window.addEventListener("click", () => {
+  bullets.push({ x: 40, y: playerY });
+});
+
+function loop(){
+  ctx.clearRect(0,0,600,300);
+
+  ctx.fillStyle = "#22c55e";
+  ctx.fillRect(20, playerY - 15, 20, 30);
+
+  bullets.forEach(b => {
+    b.x += 6;
+    ctx.fillStyle = "#38bdf8";
+    ctx.fillRect(b.x, b.y - 3, 14, 6);
+  });
+
+  bullets = bullets.filter(b => b.x < 620);
+
+  requestAnimationFrame(loop);
+}
+loop();
+<\/script>
+`,
+
+  landing: `
+<section style="padding:40px; text-align:center;">
+  <h1 style="font-size:2rem;">Welcome to Quantum Compiler</h1>
+  <p>Build anything. Instantly.</p>
+  <button style="padding:10px 20px;">Get Started</button>
+</section>
+`,
+
+  portfolio: `
+<h1>Your Name</h1>
+<p>Developer • Designer • Creator</p>
+<div style="display:flex; gap:20px;">
+  <div style="padding:20px; background:#111827; color:white;">Project 1</div>
+  <div style="padding:20px; background:#111827; color:white;">Project 2</div>
+</div>
+`,
+
+  card: `
+<div style="
+  width:260px;
+  padding:20px;
+  border-radius:12px;
+  background:rgba(15,23,42,0.9);
+  color:white;
+  border:1px solid rgba(148,163,184,0.8);
+  box-shadow:0 18px 40px rgba(15,23,42,0.9);
+">
+  <h2>Glass Card</h2>
+  <p>Beautiful UI component.</p>
+</div>
+`,
+
+  button: `
+<button style="
+  padding:12px 24px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+  color:white;
+  border:none;
+  animation:pulse 2s infinite;
+">Hover me</button>
+
+<style>
+@keyframes pulse {
+  0% { box-shadow:0 0 0 0 rgba(59,130,246,0.7); }
+  100% { box-shadow:0 0 0 20px rgba(59,130,246,0); }
+}
+</style>
+`
+};
+
+function startDemoTyping(snippet) {
+  editorEl.value = "";
+  code[currentTab] = "";
+  let i = 0;
+
+  function type() {
+    if (i <= snippet.length) {
+      editorEl.value = snippet.slice(0, i);
+      code[currentTab] = editorEl.value;
+      i++;
+      requestAnimationFrame(type);
+    }
+  }
+
+  type();
+}
+
+document.querySelectorAll(".qc-option").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const choice = btn.dataset.demo;
+    // ensure the Structure / HTML tab is active before typing the demo
+    SwitchTab('html');
+    // animate typing into the editor for the currently active tab
+    startDemoTyping(demoTemplates[choice]);
+    demoModal.classList.add("hidden");
+    // focus editor so typing is visible and keyboard shortcuts work
+    editorEl.focus();
+  });
+});
+
+updateEditorContent();
+</script>
+</body>
+</html>
