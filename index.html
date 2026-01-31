@@ -1070,85 +1070,193 @@ closeDemoModal.addEventListener("click", () => {
 
 const demoTemplates = {
   clicker: `
-<div id="app">
-  <h1>Clicker Game</h1>
-  <button id="btn">Clicks: 0</button>
+<style>
+  .qc-clicker{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px;color:#e6eef8}
+  .qc-score{font-size:28px;font-weight:700}
+  .qc-big{padding:26px 36px;border-radius:14px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border:none;font-size:18px;box-shadow:0 8px 30px rgba(59,130,246,0.2);cursor:pointer}
+  .qc-upgrades{display:flex;gap:8px}
+  .qc-upgrade{padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);cursor:pointer}
+</style>
+<div id="app" class="qc-clicker">
+  <div class="qc-score" id="score">0</div>
+  <button id="btn" class="qc-big">Tap</button>
+  <div class="qc-upgrades">
+    <button class="qc-upgrade" id="buyAuto">Auto (+1s) — 50</button>
+    <button class="qc-upgrade" id="buyMulti">x2 — 100</button>
+  </div>
 </div>
 
 <script>
-let count = 0;
-const btn = document.getElementById("btn");
-btn.onclick = () => {
-  count++;
-  btn.textContent = "Clicks: " + count;
-};
+let score = 0;
+let multiplier = 1;
+let auto = 0;
+const scoreEl = document.getElementById('score');
+const btn = document.getElementById('btn');
+const buyAuto = document.getElementById('buyAuto');
+const buyMulti = document.getElementById('buyMulti');
+
+function updateUI(){ scoreEl.textContent = score; }
+
+btn.addEventListener('click', ()=>{ score += 1 * multiplier; popPulse(btn); updateUI(); });
+
+buyAuto.addEventListener('click', ()=>{
+  if(score>=50){ score-=50; auto++; buyAuto.textContent = 'Auto (+1s) — ' + (50 + auto*25); }
+});
+
+buyMulti.addEventListener('click', ()=>{
+  if(score>=100){ score-=100; multiplier*=2; buyMulti.textContent = 'x' + multiplier + ' — ' + (100*multiplier); }
+});
+
+setInterval(()=>{ if(auto>0){ score += auto; updateUI(); } }, 1000);
+
+function popPulse(el){ el.animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:160}); }
+
+updateUI();
 <\/script>
 `,
 
   platformer: `
-<canvas id="game" width="600" height="300"></canvas>
+<style>
+  .qc-platformer-wrap{display:flex;flex-direction:column;align-items:center;padding:8px}
+  .qc-hud{color:#cfe9ff;margin-bottom:6px}
+</style>
+<div class="qc-platformer-wrap">
+  <div class="qc-hud">Score: <span id="pfScore">0</span> • Lives: <span id="pfLives">3</span></div>
+  <canvas id="game" width="760" height="360" style="border-radius:8px;background:#071025"></canvas>
+</div>
+
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-let x = 50, y = 200, vy = 0;
-const gravity = 1;
-const jump = -14;
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let w = canvas.width, h = canvas.height;
 
-window.addEventListener("keydown", (e) => {
-  if (e.code === "Space" && y >= 200) vy = jump;
-});
+const player = { x:80, y:260, w:28, h:28, vy:0, on:false };
+const gravity = 0.9, jump = -14, speed = 3;
+let keys = {};
 
-function loop(){
-  ctx.clearRect(0,0,600,300);
-  ctx.fillStyle = "#16a34a";
-  ctx.fillRect(0,230,600,70);
-  ctx.fillStyle = "white";
-  ctx.fillRect(x,y,30,30);
+const platforms = [ {x:0,y:300,w:760,h:60}, {x:200,y:230,w:140,h:16}, {x:420,y:170,w:160,h:16} ];
+let coins = [ {x:240,y:200,r:6}, {x:480,y:140,r:6}, {x:600,y:280,r:6} ];
+let score=0,lives=3;
 
-  vy += gravity;
-  y += vy;
-  if (y > 200) { y = 200; vy = 0; }
+window.addEventListener('keydown',e=>keys[e.code]=true);
+window.addEventListener('keyup',e=>keys[e.code]=false);
 
-  requestAnimationFrame(loop);
+function rects(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y }
+
+function update(){
+  // horizontal
+  if(keys['ArrowLeft']||keys['KeyA']) player.x -= speed;
+  if(keys['ArrowRight']||keys['KeyD']) player.x += speed;
+
+  // jump
+  if((keys['Space']||keys['ArrowUp']||keys['KeyW']) && player.on){ player.vy = jump; player.on=false }
+
+  player.vy += gravity;
+  player.y += player.vy;
+
+  // collisions
+  player.on = false;
+  for(const p of platforms){
+    if(rects(player, p)){
+      if(player.vy > 0 && player.y + player.h - player.vy <= p.y + 4){ // land
+        player.y = p.y - player.h; player.vy = 0; player.on = true;
+      }
+    }
+  }
+
+  // coins
+  coins = coins.filter(c=>{
+    const dx = player.x + player.w/2 - c.x; const dy = player.y + player.h/2 - c.y;
+    if(Math.hypot(dx,dy) < c.r+12){ score+=10; document.getElementById('pfScore').textContent = score; return false }
+    return true;
+  });
+
+  // bounds
+  if(player.y>h+60){ lives--; document.getElementById('pfLives').textContent = lives; resetPlayer(); if(lives<=0) resetGame(); }
 }
+
+function resetPlayer(){ player.x=80; player.y=260; player.vy=0 }
+function resetGame(){ score=0; lives=3; coins=[{x:240,y:200,r:6},{x:480,y:140,r:6},{x:600,y:280,r:6}]; document.getElementById('pfScore').textContent=score; document.getElementById('pfLives').textContent=lives }
+
+function draw(){
+  ctx.clearRect(0,0,w,h);
+  // background
+  const g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#051222'); g.addColorStop(1,'#071025'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+
+  // platforms
+  ctx.fillStyle='#0ea5a5';
+  platforms.forEach(p=>{ ctx.fillRect(p.x,p.y,p.w,p.h) });
+
+  // player
+  ctx.fillStyle='#f8fafc'; ctx.fillRect(player.x,player.y,player.w,player.h);
+
+  // coins
+  ctx.fillStyle='#fbbf24'; coins.forEach(c=>{ ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill() });
+}
+
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
 loop();
 <\/script>
 `,
 
   shooter: `
-<canvas id="game" width="600" height="300"></canvas>
+<style>
+  .qc-shooter-wrap{display:flex;flex-direction:column;align-items:center;padding:8px}
+  .qc-hud{color:#dff7ff;margin-bottom:6px}
+</style>
+<div class="qc-shooter-wrap">
+  <div class="qc-hud">Score: <span id="shScore">0</span> • Health: <span id="shHealth">5</span></div>
+  <canvas id="game" width="760" height="360" style="border-radius:8px;background:#021020"></canvas>
+</div>
+
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
 
-let bullets = [];
-let playerY = 150;
+let mouseY = H/2, bullets = [], enemies = [], score=0, health=5;
+document.getElementById('shScore').textContent = score; document.getElementById('shHealth').textContent = health;
 
-window.addEventListener("mousemove", (e) => {
-  const rect = canvas.getBoundingClientRect();
-  playerY = e.clientY - rect.top;
-});
+canvas.addEventListener('mousemove', e=>{ const r=canvas.getBoundingClientRect(); mouseY = e.clientY - r.top });
+canvas.addEventListener('click', ()=>{ bullets.push({x:60,y:mouseY,vx:9}); });
 
-window.addEventListener("click", () => {
-  bullets.push({ x: 40, y: playerY });
-});
+function spawnEnemy(){ enemies.push({x:W+40,y:50+Math.random()*(H-100),vx:-(2+Math.random()*2),r:16}) }
+setInterval(spawnEnemy,900);
 
-function loop(){
-  ctx.clearRect(0,0,600,300);
+function update(){
+  bullets.forEach(b=> b.x += b.vx );
+  bullets = bullets.filter(b=> b.x < W+50);
 
-  ctx.fillStyle = "#22c55e";
-  ctx.fillRect(20, playerY - 15, 20, 30);
+  enemies.forEach(e=> e.x += e.vx);
+  enemies = enemies.filter(e=> e.x > -60);
 
-  bullets.forEach(b => {
-    b.x += 6;
-    ctx.fillStyle = "#38bdf8";
-    ctx.fillRect(b.x, b.y - 3, 14, 6);
-  });
-
-  bullets = bullets.filter(b => b.x < 620);
-
-  requestAnimationFrame(loop);
+  // collisions
+  for(let i=enemies.length-1;i>=0;i--){
+    const en = enemies[i];
+    // enemy hits player zone
+    if(en.x < 80){ enemies.splice(i,1); health--; document.getElementById('shHealth').textContent = health; if(health<=0) resetGame(); continue }
+    for(let j=bullets.length-1;j>=0;j--){ const b=bullets[j]; const dx=b.x-en.x, dy=b.y-en.y; if(Math.hypot(dx,dy) < en.r+6){ enemies.splice(i,1); bullets.splice(j,1); score+=10; document.getElementById('shScore').textContent=score; break } }
+  }
 }
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // bg
+  const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,'#00121a'); g.addColorStop(1,'#021020'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // player
+  ctx.fillStyle='#4ade80'; ctx.fillRect(20, mouseY-16, 24, 32);
+
+  // bullets
+  ctx.fillStyle='#60a5fa'; bullets.forEach(b=> ctx.fillRect(b.x,b.y-3,12,6));
+
+  // enemies
+  ctx.fillStyle='#fb7185'; enemies.forEach(e=>{ ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill() });
+}
+
+function resetGame(){ score=0; health=5; enemies=[]; bullets=[]; document.getElementById('shScore').textContent=score; document.getElementById('shHealth').textContent=health }
+
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
 loop();
 <\/script>
 `,
