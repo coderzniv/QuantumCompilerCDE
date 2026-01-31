@@ -633,7 +633,7 @@
       flex: 1;
       background: #020617;
       border-top: 1px solid rgba(0, 0, 0, 0.85);
-      overflow: auto;
+      overflow: hidden; /* prevent scrollbars in preview */
     }
 
     iframe {
@@ -848,7 +848,7 @@
 
       <div class="editor-wrapper glass-strong">
         <div class="editor-gutter" id="gutter"></div>
-        <textarea class="editor" id="editor"></textarea>
+        <textarea class="editor" id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
       </div>
 
       <div class="editor-toolbar">
@@ -1005,12 +1005,16 @@ editorEl.addEventListener("scroll", e => {
 
 function runCode() {
   const { html, css, js } = code;
+  // force no scrolling in the generated preview document
   const doc = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Preview</title>
-<style>${css}</style>
+<style>${css}
+/* enforce no scrollbars in preview */
+html,body{overflow:hidden;height:100%;margin:0}
+</style>
 </head>
 <body>
 ${html}
@@ -1021,6 +1025,11 @@ ${js}
 </html>`;
 
   const iframe = document.createElement("iframe");
+  // hide any iframe scrollbars from the host
+  iframe.setAttribute('scrolling','no');
+  iframe.style.overflow = 'hidden';
+  iframe.style.border = 'none';
+
   previewContent.innerHTML = "";
   previewContent.appendChild(iframe);
 
