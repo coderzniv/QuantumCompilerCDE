@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- cSpell:disable -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1020,6 +1021,13 @@ html,body{overflow:hidden;height:100%;margin:0}
 ${html}
 <script>
 ${js}
+</` + `script>
+<script>
+try{
+  document.documentElement.spellcheck = false;
+  document.body.spellcheck = false;
+  Array.from(document.querySelectorAll('*')).forEach(n=>{ try{ n.spellcheck = false }catch(e){} });
+}catch(e){}
 </` + `script>
 </body>
 </html>`;
